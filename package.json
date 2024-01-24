@@ -1,5 +1,5 @@
 {
-  "name": "draft-js",
+  "name": "@leadhub/draft-js",
   "description": "A React framework for building text editors.",
   "version": "0.11.7",
   "keywords": [
