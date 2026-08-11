@@ -113,12 +113,28 @@ function editOnInput(editor: DraftEditor, event: ?SyntheticInputEvent<>): void {
   const offsetKey = nullthrows(findAncestorOffsetKey(anchorNode));
   const {blockKey, decoratorKey, leafKey} = DraftOffsetKey.decode(offsetKey);
 
-  const {start, end} = editorState
-    .getBlockTree(blockKey)
-    .getIn([decoratorKey, 'leaves', leafKey]);
+  const blockTree = editorState.getBlockTree(blockKey);
+  const leafSet =
+    blockTree != null
+      ? blockTree.getIn([decoratorKey, 'leaves', leafKey])
+      : undefined;
 
   const content = editorState.getCurrentContent();
   const block = content.getBlockForKey(blockKey);
+
+  // The offset key we just read off the DOM can name a block or leaf that the
+  // current content no longer has. That happens when something outside draft-js
+  // rewrites the contentEditable and dispatches a synthetic `input` event --
+  // browser extensions that translate, autofill or grammar-check the page do
+  // exactly this, and the event arrives with `isTrusted: false`. There is
+  // nothing safe to reconcile against, so ignore the event rather than
+  // dereferencing a key that isn't there. The next edit in a leaf that does
+  // exist goes through the normal DOM/model reconciliation below.
+  if (leafSet == null || block == null) {
+    return;
+  }
+
+  const {start, end} = leafSet;
   const modelText = block.getText().slice(start, end);
 
   // Special-case soft newlines here. If the DOM text ends in a soft newline,
