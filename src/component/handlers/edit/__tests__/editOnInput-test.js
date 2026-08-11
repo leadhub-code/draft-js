@@ -20,11 +20,11 @@ const onInput = require('editOnInput');
 jest.mock('findAncestorOffsetKey', () => jest.fn(() => 'blockkey-0-0'));
 jest.mock('keyCommandPlainBackspace', () => jest.fn(() => ({})));
 
-const getEditorState = (text: string = '') => {
+const getEditorState = (text: string = '', key: string = 'blockkey') => {
   return EditorState.createWithContent(
     ContentState.createFromBlockArray([
       new ContentBlock({
-        key: 'blockkey',
+        key,
         text,
       }),
     ]),
@@ -110,5 +110,69 @@ test('restoreEditorDOM and keyCommandPlainBackspace are called when backspace is
     );
     expect(editor.restoreEditorDOM).toHaveBeenCalledTimes(1);
     expect(editor.update).toHaveBeenCalledWith(newEditorState);
+  });
+});
+
+test('the event is ignored when the offset key names a block the content no longer has', () => {
+  const anchorNodeText = 'react draftjs';
+  const globalSelection = {
+    anchorNode: document.createTextNode(anchorNodeText),
+  };
+  withGlobalGetSelectionAs(globalSelection, () => {
+    // `findAncestorOffsetKey` reads the key off the DOM, so it can name a block
+    // that is not in the current content -- e.g. when a browser extension
+    // rewrites the contentEditable and fires a synthetic `input` event.
+    const editorState = getEditorState(anchorNodeText, 'otherblockkey');
+    const editorNode = document.createElement('div');
+    const editor = {
+      _latestEditorState: editorState,
+      props: {},
+      update: jest.fn(),
+      restoreEditorDOM: jest.fn(),
+      editor: editorNode,
+    };
+
+    const inputEvent = {
+      nativeEvent: {inputType: 'insertText'},
+      currentTarget: editorNode,
+    };
+
+    // $FlowExpectedError[incompatible-call]
+    onInput(editor, inputEvent);
+
+    expect(editor.update).toHaveBeenCalledTimes(0);
+    expect(editor.restoreEditorDOM).toHaveBeenCalledTimes(0);
+  });
+});
+
+test('the event is ignored when the offset key names a leaf the block tree no longer has', () => {
+  const anchorNodeText = 'react draftjs';
+  const globalSelection = {
+    anchorNode: document.createTextNode(anchorNodeText),
+  };
+  withGlobalGetSelectionAs(globalSelection, () => {
+    const editorState = getEditorState(anchorNodeText);
+    const editorNode = document.createElement('div');
+    const editor = {
+      _latestEditorState: editorState,
+      props: {},
+      update: jest.fn(),
+      restoreEditorDOM: jest.fn(),
+      editor: editorNode,
+    };
+
+    // The block exists, but it has no leaf 5 in decorator range 0.
+    require('findAncestorOffsetKey').mockReturnValueOnce('blockkey-0-5');
+
+    const inputEvent = {
+      nativeEvent: {inputType: 'insertText'},
+      currentTarget: editorNode,
+    };
+
+    // $FlowExpectedError[incompatible-call]
+    onInput(editor, inputEvent);
+
+    expect(editor.update).toHaveBeenCalledTimes(0);
+    expect(editor.restoreEditorDOM).toHaveBeenCalledTimes(0);
   });
 });
