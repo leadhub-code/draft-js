@@ -64,18 +64,44 @@ function getTargetRangeAfterRemoval(
   removalRange: SelectionState,
   targetRange: SelectionState,
 ): ?SelectionState {
-  const targetKey = targetRange.getStartKey();
-
-  if (afterRemoval.getBlockForKey(targetKey) != null) {
-    // The target block survived the removal; nothing to remap.
-    return targetRange;
-  }
-
   const startKey = removalRange.getStartKey();
   const startOffset = removalRange.getStartOffset();
   const endKey = removalRange.getEndKey();
   const endOffset = removalRange.getEndOffset();
+
+  const targetKey = targetRange.getStartKey();
   const targetOffset = targetRange.getStartOffset();
+
+  if (afterRemoval.getBlockForKey(targetKey) != null) {
+    // The target block survived the removal. A drop that landed between the
+    // edges of the dragged text still has no destination: for a multi-block
+    // range everything past `startOffset` in the start block was removed, and
+    // for a single-block range the removed span is `startOffset..endOffset`.
+    const isInsideRemovedText =
+      targetKey === startKey &&
+      targetOffset > startOffset &&
+      (startKey !== endKey || targetOffset < endOffset);
+
+    if (isInsideRemovedText) {
+      return null;
+    }
+
+    // A drop point is a caret. `getUpdatedSelectionState` falls back to
+    // returning the *current* selection when it cannot resolve the drop
+    // coordinates against the block tree, and during an internal drag that is
+    // the dragged range itself -- a range whose end block the removal may have
+    // just deleted. Take its start as the drop point rather than replacing a
+    // range that no longer means anything.
+    return targetRange.isCollapsed()
+      ? targetRange
+      : targetRange.merge({
+          anchorKey: targetKey,
+          anchorOffset: targetOffset,
+          focusKey: targetKey,
+          focusOffset: targetOffset,
+          isBackward: false,
+        });
+  }
 
   if (targetKey === endKey && targetOffset >= endOffset) {
     // The tail of the end block was merged onto the end of the start block,

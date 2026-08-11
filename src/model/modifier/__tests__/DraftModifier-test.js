@@ -123,4 +123,53 @@ describe('moveText', () => {
 
     expect(result).toBe(contentState);
   });
+
+  it('leaves the content untouched when the drop lands inside the moved text in a surviving block', () => {
+    // The start block always survives, so a drop past `startOffset` names an
+    // offset whose characters were just removed.
+    const contentState = getContentState();
+    const result = DraftModifier.moveText(
+      contentState,
+      getSelection('a', 2, 'b', 3),
+      getSelection('a', 4, 'a', 4),
+    );
+
+    expect(result).toBe(contentState);
+  });
+
+  it('leaves the content untouched when a single-block drop lands inside the moved text', () => {
+    const contentState = ContentState.createFromBlockArray([
+      new ContentBlock({key: 'a', type: 'unstyled', text: 'hello world'}),
+    ]);
+    const result = DraftModifier.moveText(
+      contentState,
+      getSelection('a', 2, 'a', 8),
+      getSelection('a', 5, 'a', 5),
+    );
+
+    expect(result).toBe(contentState);
+  });
+
+  describe('when the drop target is not collapsed', () => {
+    // `getUpdatedSelectionState` returns the current selection when it cannot
+    // resolve the drop coordinates against the block tree, so during an
+    // internal drag `moveText` can be handed the dragged range as its target.
+    it('drops at the start of the range rather than reading a removed block', () => {
+      const contentState = getContentState();
+      const range = getSelection('a', 2, 'c', 2);
+      const result = DraftModifier.moveText(contentState, range, range);
+
+      expect(getBlockTexts(result)).toEqual(['Alpha', 'Bravo', 'Charlie']);
+    });
+
+    it('drops at the start of the range rather than dropping text', () => {
+      const contentState = ContentState.createFromBlockArray([
+        new ContentBlock({key: 'a', type: 'unstyled', text: 'hello world'}),
+      ]);
+      const range = getSelection('a', 2, 'a', 8);
+      const result = DraftModifier.moveText(contentState, range, range);
+
+      expect(getBlockTexts(result)).toEqual(['hello world']);
+    });
+  });
 });
