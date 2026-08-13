@@ -21,7 +21,6 @@
   "license": "MIT",
   "scripts": {
     "prepublish": "npm run build",
-    "pretest": "node node_modules/fbjs-scripts/node/check-dev-engines.js package.json",
     "build": "gulp",
     "dev": "gulp dev",
     "postbuild": "node node_modules/fbjs-scripts/node/check-lib-requires.js lib",
@@ -84,10 +83,6 @@
     "through2": "^4.0.2",
     "uglifyjs-webpack-plugin": "^2.2.0",
     "webpack-stream": "6.1.0"
-  },
-  "devEngines": {
-    "node": "14.x || 16.x",
-    "npm": "2.x || 3.x || 5.x || 6.x || 7.x || 8.x"
   },
   "jest": {
     "globals": {
